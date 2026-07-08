@@ -1,0 +1,101 @@
+name: lakehouse
+
+services:
+  minio:
+    image: quay.io/minio/minio:latest
+    container_name: lakehouse-minio
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000" # S3 API
+      - "9001:9001" # Web console
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER} # read from env
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    volumes:
+      - minio_data:/data # presist
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+
+  minio-init:   # create bucket once then exit
+    image: quay.io/minio/mc:latest
+    container_name: lakehouse-minio-init
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 ${MINIO_ROOT_USER} ${MINIO_ROOT_PASSWORD} &&
+      mc mb --ignore-existing local/${MINIO_BUCKET} &&
+      echo 'bucket ${MINIO_BUCKET} ready';
+      "
+
+  nessie:
+    image: ghcr.io/projectnessie/nessie:latest
+    container_name: catalog-nessie
+    ports:
+      - "19120:19120"   # REST API + UI
+    environment:
+      NESSIE_VERSION_STORE_TYPE: IN_MEMORY # in starting milestone
+    restart: unless-stopped
+
+  trino:
+    image: trinodb/trino:latest
+    container_name: lakehouse-trino
+    ports:
+      - "8080:8080"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    volumes:
+      - ./trino/etc/catalog/iceberg.properties:/etc/trino/catalog/iceberg.properties:ro
+    depends_on:
+      minio-init:
+        condition: service_completed_successfully
+      nessie:
+        condition: service_started
+    restart: unless-stopped
+
+  postgres-app: # source app OLTP
+    image: postgres:16
+    container_name: lakehouse-postgres-app
+    ports:
+      - "5434:5432"
+    environment:
+      POSTGRES_USER: ${APP_PG_USER}
+      POSTGRES_PASSWORD: ${APP_PG_PASSWORD}
+      POSTGRES_DB: ${APP_PG_DB}
+    volumes:
+      - postgres_app_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${APP_PG_USER} -d ${APP_PG_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  mongo: # source event logs
+    image: mongo:7
+    container_name: lakehouse-mongo
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USER}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD}
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  minio_data:
+  postgres_app_data:
+  mongo_data:

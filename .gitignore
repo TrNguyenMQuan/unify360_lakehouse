@@ -1,2 +1,29 @@
+# My document
 docs
 CLAUDE.md
+
+# Enviorment
+.env                    
+
+# Data & artifacts nặng
+data/                   # data local (Parquet/seed) 
+*.duckdb
+minio_data/             # volume MinIO 
+
+# Python rác 
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+
+#  dbt 
+dbt_unify360/target/    # dbt compile 
+dbt_unify360/dbt_packages/
+logs/
+
+# OS / IDE 
+.DS_Store              
+.vscode/
+.idea/

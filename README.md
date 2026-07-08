@@ -2,7 +2,7 @@
 
 > A **metadata-driven** data platform that ingests from **four heterogeneous sources** (billing API, CRM files, an application database, and NoSQL event logs), unifies them into a single **Customer 360** view, and serves analytics from an open **lakehouse** — built with **DataOps** practices (data quality, reconciliation, monitoring, CI/CD, PII masking).
 
-**Status:** 🚧 In development &nbsp;·&nbsp; **Stack:** Python · Iceberg · MinIO · Trino · Dagster · dbt · Soda · Prometheus/Grafana · Metabase · Docker
+**Status:** 🚧 In development &nbsp;·&nbsp; **Stack:** Python · Iceberg · MinIO · Trino · Airflow · dbt · Soda · Prometheus/Grafana · Metabase · Docker
 
 > _Personal Data Engineering portfolio project. Docs are in English; internal working notes (`docs/ROADMAP.md`) are in Vietnamese._
 
@@ -43,7 +43,7 @@ Mongo events┘    table/YAML)│   ├ CsvConnector               │          
                             │   ├ JdbcConnector              │── GOLD    Customer 360: dim_customer ·
   "+ source = + 1 row"      │   └ MongoConnector             │           MRR/churn · funnel · LTV · recon
                             └──────────────────────────────┘
-        Dagster (asset lineage) · dbt (conform & integrate) · Trino (query on lake) · Metabase (BI)
+        Airflow (DAG orchestration & lineage) · dbt (conform & integrate) · Trino (query on lake) · Metabase (BI)
         DataOps: Soda (DQ) · schema evolution · CI/CD (GitHub Actions) · Prometheus/Grafana · runbook
 ```
 
@@ -105,7 +105,7 @@ stripe_customer_id  ↔  crm_email  ↔  app_user_id  ↔  event_anonymous_id
 | Table format | Apache Iceberg |
 | Catalog | Project Nessie / Iceberg REST |
 | Query engine | Trino |
-| Orchestration | Dagster (asset-based) |
+| Orchestration | Airflow (DAG-based) |
 | Transform | dbt (dbt-trino) |
 | Data quality | Soda Core |
 | Monitoring | Prometheus + Grafana |
@@ -124,14 +124,14 @@ unify360/
 ├── generators/               # source simulators (Stripe/CRM/Postgres/Mongo seeders)
 ├── dbt_unify360/             # dbt project: staging · silver · gold
 │   └── models/  bronze/ · silver/ · gold/
-├── dagster_unify360/         # Dagster assets + schedules
+├── airflow/                  # Airflow DAGs + schedules (dags/ · plugins/)
 ├── data_quality/             # Soda checks (YAML)
 ├── monitoring/               # Prometheus + Grafana config
 ├── docs/
 │   ├── ROADMAP.md            # milestone checklist (progress source of truth)
 │   ├── architecture.png      # diagram
 │   └── runbook.md            # incident handling
-├── docker-compose.yml        # MinIO · Postgres · Mongo · Nessie · Trino · Dagster · Metabase · Prom/Grafana
+├── docker-compose.yml        # MinIO · Postgres · Mongo · Nessie · Trino · Airflow · Metabase · Prom/Grafana
 ├── .github/workflows/ci.yml  # lint + test + dbt parse
 └── .env(.example)
 ```
@@ -170,7 +170,7 @@ cd dbt_unify360 && dbt build
 - Metadata-driven ingestion framework (config-driven, connector pattern, incremental + idempotent).
 - Cross-source **identity resolution** and **Customer 360** modeling (SCD-2, reconciliation).
 - **True lakehouse** on object storage (Iceberg + Trino), queried without a separate warehouse.
-- Asset-based orchestration & lineage (Dagster), analytics engineering (dbt).
+- DAG-based orchestration & lineage (Airflow), analytics engineering (dbt).
 - **DataOps**: data quality gates, monitoring/alerting, CI/CD, PII masking, incident runbook.
 
 ## Roadmap

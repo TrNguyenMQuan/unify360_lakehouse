@@ -1,0 +1,13 @@
+# Ingestion & Lakehouse
+trino
+pyiceberg[s3fs]     # read and write table iceberg from python
+psycopg[binary]     # connect to postgres
+pymongo             # source mongo
+faker               # generate mock data
+
+# Transform & quality
+dbt-trino           # dbt run on trino
+soda-core-trino 
+
+# Dev
+ruff
