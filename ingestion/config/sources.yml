@@ -1,0 +1,33 @@
+# Metadata drive - config table describe each source
+
+sources:
+  crm_contacts:
+    type: csv                           # engine read this to chose connector
+    path: data/crm/contacts.csv         # CsvConnector read this path
+    load_mode: full                     # CSV dont have watermark
+    primary_key: contact_email          # idempotent
+    target_bronze: bronze.crm_contacts  # s3://lakehouse/bronze/crm_contacts
+
+  stripe_customers:
+    type: rest
+    path: data/stripe/customers.json
+    load_mode: full
+    primary_key: id
+    target_bronze: bronze.stripe_customers
+
+  app_users:
+    type: jdbc
+    table: app.users
+    load_mode: incremental
+    watermark: created_at
+    primary_key: user_id
+    target_bronze: bronze.app_users
+
+  app_events:
+    type: mongodb
+    database: events_db
+    collection: events
+    load_mode: incremental
+    watermark: timestamp
+    primary_key: event_id
+    target_bronze: bronze.app_events

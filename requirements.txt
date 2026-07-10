@@ -7,7 +7,14 @@ faker               # generate mock data
 
 # Transform & quality
 dbt-trino           # dbt run on trino
-soda-core-trino 
+soda-core-trino
 
 # Dev
 ruff
+
+# Df
+pandas
+pyarrow
+
+# env
+dotenv
