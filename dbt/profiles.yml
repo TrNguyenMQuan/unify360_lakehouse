@@ -1,0 +1,14 @@
+# Store infor to connect with db
+lakehouse:
+  target: dev
+  outputs:
+    dev:
+      type: trino # adapter dbt-trino
+      method: none
+      host: localhost
+      port: 8080
+      user: dbt
+      http_scheme: http
+      database: iceberg   # catalog of trino
+      schema: silver
+      threads: 4

@@ -40,7 +40,23 @@ services:
     ports:
       - "19120:19120"   # REST API + UI
     environment:
-      NESSIE_VERSION_STORE_TYPE: IN_MEMORY # in starting milestone
+      nessie.version.store.type: ROCKSDB  # presitent catalog
+      nessie.version.store.persist.rocks-db.path: /nessie/data
+      # REST API Iceberg config about S3 store in catalog
+      nessie.catalog.default-warehouse: warehouse   # root dir in minio where iceberg store data and metadata
+      nessie.catalog.warehouses.warehouse.location: s3://lakehouse/warehouse
+      nessie.catalog.service.s3.default-options.region: us-east-1
+      nessie.catalog.service.s3.default-options.path-style-access: "true"
+      nessie.catalog.service.s3.default-options.endpoint: http://minio:9000/  # endpoint for nessie
+      nessie.catalog.service.s3.default-options.external-endpoint: http://localhost:9000/ # endpoint for iceberg
+      nessie.catalog.service.s3.default-options.access-key: urn:nessie-secret:quarkus:nessie.catalog.secrets.access-key
+      nessie.catalog.secrets.access-key.name: ${MINIO_ROOT_USER}
+      nessie.catalog.secrets.access-key.secret: ${MINIO_ROOT_PASSWORD}
+    volumes:
+      - nessie_data:/nessie/data
+    depends_on:
+      minio-init:
+        condition: service_completed_successfully
     restart: unless-stopped
 
   trino:
@@ -99,3 +115,4 @@ volumes:
   minio_data:
   postgres_app_data:
   mongo_data:
+  nessie_data:

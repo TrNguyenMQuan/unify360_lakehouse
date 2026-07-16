@@ -38,3 +38,7 @@ MONGO = dict(
     password=_require("MONGO_PASSWORD"),
     authSource="admin"
 )
+
+# Nessie
+NESSIE_URI= _require("NESSIE_URI")
+NESSIE_WAREHOUSE = _require("NESSIE_WAREHOUSE")

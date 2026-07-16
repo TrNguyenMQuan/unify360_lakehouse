@@ -1,0 +1,15 @@
+# declare project include: name, profile, model
+name: 'lakehouse'
+version: '1.0.0'
+config-version: 2
+
+profile: 'lakehouse'
+
+model-paths: ["models"] # store model with query sql
+macro-paths: ["macros"] # store function write by jinja
+test-paths: ["tests"]   # store custom test
+seed-paths: ["seeds"]   # store static data csv
+
+models:
+  lakehouse:
+    +materialized: view 

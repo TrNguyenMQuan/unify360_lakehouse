@@ -2,20 +2,21 @@
 from __future__ import annotations
 import argparse
 import yaml
-import pandas as pd
-from pathlib import Path
 import json
+from pathlib import Path
+import pandas as pd
+import pyarrow as pa    # Iceberg write from arrow table
 from ingestion.connectors.base import Connector
 from ingestion.connectors.csv import CsvConnector
 from ingestion.connectors.rest import RestConnector
 from ingestion.connectors.jdbc import JdbcConnector
 from ingestion.connectors.mongo import MongoConnector
-from ingestion.config import S3_OPTS, MINIO_BUCKET as BUCKET
+from ingestion.catalog import get_catalog
 
 CONFIG_PATH = "ingestion/config/sources.yml"
 STATE_PATH = Path("ingestion/state.json")
+META_COLS = ("_source", "_ingested_ad")     # add column add in layer bronze
 
-# type in config -> class connector, add source = add 1 row
 CONNECTORS: dict[str, type[Connector]] = {
     "csv": CsvConnector,
     "rest": RestConnector,
@@ -33,40 +34,44 @@ def load_state() -> dict:
 def save_state(state: dict) -> None:
     STATE_PATH.write_text(json.dumps(state, indent=2, default=str))
 
-def ingest_by_connector(name: str, cfg: dict, state: dict) -> None:
+# pyiceberg write from pyarrow not directly with pandas
+def to_bronze_arrow(df: pd.DataFrame) -> pa.Table:
+    return pa.Table.from_pandas(df.astype("string"), preserve_index=False)
+
+def ingest_by_connector(name: str, cfg: dict, state: dict, catalog) -> None:
     conn_type = cfg["type"]
     if conn_type not in CONNECTORS:
-        raise ValueError(f"Unknown type '{conn_type}")
+        raise ValueError(f"Unknown type '{conn_type}'")
 
-    # select connector
     connector: Connector = CONNECTORS[conn_type](cfg)
     mode = cfg.get("load_mode", "full")
 
-    # extract to df
     since = state.get(name) if mode == "incremental" else None
     df = connector.extract(since=since)
-
     if df.empty:
-        print(f"{name} doent have new record")
+        print(f"{name}: no have new records")
         return
 
-    # add metadata bronze
-    df["_source"] = name
-    df["_ingested_at"] = pd.Timestamp.now(tz="UTC")
+    if mode == "incremental":
+        state[name] = df[cfg["watermark"]].max()
 
-    # write parquet into minio
-    layer, table = cfg["target_bronze"].split(".")
-    base = f"s3://{BUCKET}/{layer}/{table}"
+    df["_source"] = name
+    df["_ingested_at"] = pd.Timestamp.now(tz="UTC").isoformat()
+
+    # target: "bronze.crm_contacts" -> namespace=bronze, table=crm_contacts
+    namespace, table = cfg["target_bronze"].split(".")
+    identifier = f"{namespace}.{table}"
+    arrow = to_bronze_arrow(df)
+
+    catalog.create_namespace_if_not_exists(namespace)   # idemppotent
+    tbl = catalog.create_table_if_not_exists(identifier, schema=arrow.schema)
 
     if mode == "incremental":
-        ts = pd.Timestamp.now(tz="UTC").strftime("%Y%m%dT%H%M%S")
-        path = f"{base}/part-{ts}.parquet"          # append new file
-        state[name] = df[cfg["watermark"]].max()    # update high-watermark
+        tbl.append(arrow)       # new snapshot
     else:
-        path = f"{base}/data.parquet"
+        tbl.overwrite(arrow)    # full refresh
 
-    df.to_parquet(path, storage_options=S3_OPTS, index=False)
-    print(f"Load {name} : {len(df)} rows into {path}")
+    print(f"Load {name}: {len(df)} rows -> iceberg.{identifier} ({mode})")
 
 def main() -> None:
     parser = argparse.ArgumentParser()
@@ -82,8 +87,9 @@ def main() -> None:
     else:
         parser.error("need --source <name> or --all")
 
+    catalog = get_catalog()
     for name, cfg in targets.items():
-        ingest_by_connector(name, cfg, state)
+        ingest_by_connector(name, cfg, state, catalog)
     save_state(state)
 
 if __name__ == "__main__":
