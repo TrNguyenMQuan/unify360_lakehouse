@@ -19,12 +19,11 @@ venv/
 .pytest_cache/
 .ruff_cache/
 
-#  dbt
-dbt_unify360/target/    # dbt compile
-dbt_unify360/dbt_packages/
-logs/
-
 # OS / IDE
 .DS_Store
 .vscode/
 .idea/
+
+# dbt
+dbt/target
+logs/

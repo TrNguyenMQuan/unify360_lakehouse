@@ -1,0 +1,14 @@
+version: 2
+
+sources:
+  - name: bronze
+    database: iceberg
+    schema: bronze
+    description: "Raw landing from ingestion engine"
+
+    tables:
+      - name: crm_contacts
+      - name: stripe_customers
+      - name: app_users
+      - name: app_subscriptions
+      - name: app_events

@@ -27,8 +27,6 @@ class Person:
 
 
 def build_persons(n: int = N_PERSONS) -> list[Person]:
-    # Re-seed 1 Faker CỤC BỘ mỗi lần gọi → deterministic tuyệt đối,
-    # KHÔNG phụ thuộc state toàn cục hay số lần gọi (đây là chỗ fix bug).
     fake = Faker()
     fake.seed_instance(SEED)
     persons: list[Person] = []

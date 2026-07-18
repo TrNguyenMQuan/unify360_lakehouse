@@ -12,4 +12,6 @@ seed-paths: ["seeds"]   # store static data csv
 
 models:
   lakehouse:
-    +materialized: view 
+    +materialized: view   # default for model without category
+    silver:
+      +materialized: table  # models/silver

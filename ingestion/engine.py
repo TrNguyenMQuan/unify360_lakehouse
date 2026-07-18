@@ -15,7 +15,7 @@ from ingestion.catalog import get_catalog
 
 CONFIG_PATH = "ingestion/config/sources.yml"
 STATE_PATH = Path("ingestion/state.json")
-META_COLS = ("_source", "_ingested_ad")     # add column add in layer bronze
+META_COLS = ("_source", "_ingested_at")     # add column add in layer bronze
 
 CONNECTORS: dict[str, type[Connector]] = {
     "csv": CsvConnector,

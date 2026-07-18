@@ -1,0 +1,52 @@
+version: 2
+
+models:
+  - name: customers
+    description: "Union 4 sources"
+    columns:
+      - name: source_system
+        tests:
+          - not_null
+          - accepted_values:      # avoid strange source
+              arguments:
+                values: ['crm', 'stripe', 'app']
+      - name: source_id
+        tests:
+          - not_null              # primary key
+      - name: email_hash
+        tests:
+          - not_null              # key join
+
+  - name: subscriptions
+    columns:
+      - name: subscription_id
+        tests:
+          - unique
+          - not_null
+      - name: account_id
+        tests:
+          - not_null
+      - name: plan
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['free', 'basic', 'pro', 'enterprise']
+      - name: status
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['active', 'canceled']
+
+  - name: events
+    columns:
+      - name: event_id
+        tests:
+          - unique
+          - not_null
+      - name: event_type
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['page_view', 'feature_click', 'session']
+                
+

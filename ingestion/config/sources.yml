@@ -31,3 +31,12 @@ sources:
     watermark: timestamp
     primary_key: event_id
     target_bronze: bronze.app_events
+
+  app_subscriptions:
+    type: jdbc
+    table: app.subscriptions
+    load_mode: incremental
+    watermark: updated_at
+    primary_key: subscription_id
+    target_bronze: bronze.app_subscriptions
+
