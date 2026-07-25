@@ -48,5 +48,20 @@ models:
           - accepted_values:
               arguments:
                 values: ['page_view', 'feature_click', 'session']
-                
+
+  - name: identity_map
+    description: "Deterministic identity resolution"
+    columns:
+      - name: customer_key
+        tests:
+          - not_null
+      - name: source_id
+        tests:
+          - not_null
+      - name: email_hash
+        tests:
+          - not_null
+
+          
+
 
