@@ -2,9 +2,7 @@
 
 > A **metadata-driven** data platform that ingests from **four heterogeneous sources** (billing API, CRM files, an application database, and NoSQL event logs), unifies them into a single **Customer 360** view, and serves analytics from an open **lakehouse** — built with **DataOps** practices (data quality, reconciliation, monitoring, CI/CD, PII masking).
 
-**Status:** 🚧 In development &nbsp;·&nbsp; **Stack:** Python · Iceberg · MinIO · Trino · Airflow · dbt · Soda · Prometheus/Grafana · Metabase · Docker
-
-> _Personal Data Engineering portfolio project. Docs are in English; internal working notes (`docs/ROADMAP.md`) are in Vietnamese._
+**Describe:** 4-source ingestion → Iceberg lakehouse (Trino) → **Customer 360** (identity resolution · SCD-2 · MRR/funnel/LTV · reconciliation). DataOps (DQ · monitoring · CI/CD · BI) next. &nbsp;·&nbsp; **Stack:** Python · Iceberg · MinIO · Trino · Airflow · dbt · Soda · Prometheus/Grafana · Metabase · Docker
 
 ---
 
@@ -33,6 +31,8 @@ In a typical SaaS company the **same customer is scattered across systems**: Mar
 Unify360 tackles the core Data Engineering problem: **ingest heterogeneous sources and integrate them into one trustworthy, analytics-ready model** — the foundation of every modern data team.
 
 ## Architecture
+
+![Unify360 architecture — 4 sources → metadata-driven ingestion → Iceberg lakehouse (Bronze/Silver/Gold) → Trino → Metabase](assets/architecture.png)
 
 ```
 4 SOURCES (4 types)          INGESTION FRAMEWORK (metadata-driven)      LAKEHOUSE (Iceberg on MinIO)
@@ -65,12 +65,13 @@ The lakehouse is a **true lakehouse**: analytics run **directly on Iceberg table
 Instead of writing one pipeline per source, a single **config table** describes every source, and a **generic engine** dispatches to the correct connector by `type`. **Adding a new source = adding one config row** — no new pipeline code.
 
 ```
-source_name      | type     | load_mode   | watermark   | primary_key | target_bronze
------------------+----------+-------------+-------------+-------------+------------------------
-stripe_customers | rest_api | incremental | created     | id          | bronze.stripe_customers
-crm_contacts     | csv      | full        | -           | email       | bronze.crm_contacts
-app_users        | jdbc     | incremental | updated_at  | user_id     | bronze.app_users
-app_events       | mongodb  | incremental | event_ts    | event_id    | bronze.app_events
+source_name       | type    | load_mode   | watermark  | primary_key     | target_bronze
+------------------+---------+-------------+------------+-----------------+---------------------------
+crm_contacts      | csv     | full        | -          | contact_email   | bronze.crm_contacts
+stripe_customers  | rest    | full        | -          | id              | bronze.stripe_customers
+app_users         | jdbc    | incremental | created_at | user_id         | bronze.app_users
+app_events        | mongodb | incremental | timestamp  | event_id        | bronze.app_events
+app_subscriptions | jdbc    | incremental | updated_at | subscription_id | bronze.app_subscriptions
 ```
 
 Connectors implement a common interface (`extract() → DataFrame/records`), so the engine treats every source uniformly: read config → pick connector → apply `load_mode` (full / incremental via `watermark`) → land to Bronze idempotently (upsert on `primary_key`).
@@ -81,7 +82,7 @@ Connectors implement a common interface (`extract() → DataFrame/records`), so 
 |---|---|---|
 | **Bronze** | `stripe_*`, `crm_*`, `app_*`, `events_*` | raw per source, append-only, schema-on-read |
 | **Silver** | `customers` (PII masked), `subscriptions`, `events`, **`identity_map`** | cleaned · conformed schema · deduped · **identity resolved** · validated (Soda) |
-| **Gold** | `dim_customer` (360), `fct_subscriptions` (SCD-2), `mart_mrr`, `mart_funnel`, `mart_ltv`, `recon_billing_vs_app` | analytics-ready |
+| **Gold** | `dim_customer` (360), `fact_subscriptions` (SCD-2), `mart_mrr`, `mart_funnel`, `mart_ltv`, `recon_billing_vs_app` | analytics-ready |
 
 ## Identity resolution → Customer 360
 
@@ -93,7 +94,7 @@ stripe_customer_id  ↔  crm_email  ↔  app_user_id  ↔  event_anonymous_id
 
 - **`identity_map`** (Silver) links these keys into one canonical `customer_key`.
 - **`dim_customer`** (Gold) is the unified 360 view.
-- **`fct_subscriptions`** applies **SCD type-2** to track plan changes over time.
+- **`fact_subscriptions`** applies **SCD type-2** to track plan changes over time.
 - **`recon_billing_vs_app`** reconciles revenue (Stripe) against active subscriptions (app DB) and raises an alert on mismatch.
 
 ## Tech stack
@@ -122,15 +123,15 @@ unify360/
 │   ├── connectors/           #   rest.py · csv.py · jdbc.py · mongo.py
 │   └── config/sources.yml    #   source registry (the "config table")
 ├── generators/               # source simulators (Stripe/CRM/Postgres/Mongo seeders)
-├── dbt_unify360/             # dbt project: staging · silver · gold
-│   └── models/  bronze/ · silver/ · gold/
+├── dbt/                      # dbt project (project & profile = "lakehouse")
+│   ├── models/silver/  ·  models/gold/
+│   ├── snapshots/            #   SCD-2 (scd_subscriptions)
+│   ├── seeds/                #   plan_pricing.csv
+│   └── macros/               #   generate_schema_name (clean per-layer schemas)
 ├── airflow/                  # Airflow DAGs + schedules (dags/ · plugins/)
 ├── data_quality/             # Soda checks (YAML)
 ├── monitoring/               # Prometheus + Grafana config
-├── docs/
-│   ├── ROADMAP.md            # milestone checklist (progress source of truth)
-│   ├── architecture.png      # diagram
-│   └── runbook.md            # incident handling
+├── assets/                   # diagrams published in this README (architecture.png)
 ├── docker-compose.yml        # MinIO · Postgres · Mongo · Nessie · Trino · Airflow · Metabase · Prom/Grafana
 ├── .github/workflows/ci.yml  # lint + test + dbt parse
 └── .env(.example)
@@ -149,7 +150,7 @@ python -m generators.seed_all
 python -m ingestion.engine --all
 
 # 3) transform Bronze → Silver → Gold
-cd dbt_unify360 && dbt build
+cd dbt && dbt build --profiles-dir .   # models + snapshots + seeds + tests
 
 # 4) query the lakehouse
 #    Trino:    http://localhost:8080
@@ -163,7 +164,7 @@ cd dbt_unify360 && dbt build
 - **Monitoring:** Prometheus + Grafana (ingestion duration, row counts, DQ pass rate, freshness SLAs) with alerts.
 - **CI/CD:** GitHub Actions — lint (ruff/black), unit tests, `dbt parse`.
 - **Security:** PII masking in Silver; secrets via `.env` / Docker secrets (never committed).
-- **Incident handling:** `docs/runbook.md` + a demo that injects bad data → Soda fails → alert fires → documented fix.
+- **Incident handling:** an incident runbook + a demo that injects bad data → Soda fails → alert fires → documented fix.
 
 ## Skills demonstrated
 
@@ -173,6 +174,3 @@ cd dbt_unify360 && dbt build
 - DAG-based orchestration & lineage (Airflow), analytics engineering (dbt).
 - **DataOps**: data quality gates, monitoring/alerting, CI/CD, PII masking, incident runbook.
 
-## Roadmap
-
-Milestone-by-milestone plan and progress: [`docs/ROADMAP.md`](docs/ROADMAP.md).

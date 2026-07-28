@@ -10,5 +10,5 @@ lakehouse:
       user: dbt
       http_scheme: http
       database: iceberg   # catalog of trino
-      schema: silver
+      schema: scratch
       threads: 4

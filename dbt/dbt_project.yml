@@ -15,3 +15,7 @@ models:
     +materialized: view   # default for model without category
     silver:
       +materialized: table  # models/silver
+      +schema: silver
+    gold:
+      +materialized: table # models/gold
+      +schema: gold 

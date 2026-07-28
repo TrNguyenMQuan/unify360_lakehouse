@@ -1,4 +1,5 @@
--- match one person in 3 source by email_hash -> 1 customer_key
+-- create customer_key by email_hash
+-- table included: have many account with 1 source system, have 1 account on 1/2/3 source_system
 with source_keys as (
     -- email_hash = key match deterministic (same email hash = same person)
     select
