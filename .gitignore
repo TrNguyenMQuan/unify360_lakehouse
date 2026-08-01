@@ -1,5 +1,5 @@
 # My document
-docs
+my_docs
 CLAUDE.md
 
 # Enviorment
@@ -27,3 +27,6 @@ venv/
 # dbt
 dbt/target
 logs/
+
+dbt/.user.yml
+.soda/
