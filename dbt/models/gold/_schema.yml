@@ -1,0 +1,103 @@
+version: 2
+
+models:
+  - name: dim_customer
+    description: "Customer unify - 1 row / 1 person"
+    columns:
+      - name: customer_key
+        description: "Hash surrogate key of email hash"
+        tests:
+          - unique
+          - not_null
+          - relationships:  # must come from identity_map
+              arguments:
+                to: ref("identity_map")
+                field: customer_key
+      - name: email_masked
+        tests: [not_null]
+      - name: n_source_records
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [1, 2, 3]
+                quote: false # not convert value to string
+      - name: in_crm
+        tests:
+          - accepted_values:
+              arguments:
+                values: [0, 1]
+                quote: false
+      - name: in_app
+        tests:
+          - accepted_values:
+              arguments:
+                values: [0, 1]
+                quote: false
+      - name: in_stripe
+        tests:
+          - accepted_values:
+              arguments:
+                values: [0, 1]
+                quote: false
+
+  - name: fact_subscriptions
+    description: "Grain: 1 row / (subscription, version)"
+    columns:
+      - name: subscription_version_key
+        description: "dbt_scd_id - grain SCD-2"
+        tests:
+          - not_null
+          - unique
+      - name: subscription_id
+        tests: [not_null]
+      - name: customer_key
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_customer')
+                field: customer_key
+      - name: plan
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['free', 'basic', 'pro', 'enterprise']
+      - name: status
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['active', 'canceled']
+      - name: is_current
+        tests: [not_null]
+
+  - name: mart_mrr
+    columns:
+      - name: plan
+        tests: [unique, not_null]
+      - name: active_subscriptions
+        tests: [not_null]
+      - name: mrr
+        tests: [not_null]
+
+  - name: mart_ltv
+    columns:
+      - name: customer_key
+        tests:
+          - not_null
+          - unique
+          - relationships:
+              arguments:
+                to: ref('dim_customer')
+                field: customer_key
+      - name: ltv_to_date
+        tests: [not_null]
+
+  - name: recon_billing_vs_app
+    columns:
+      - name: recon_status
+        tests:
+          - unique
+          - not_null
+      - name: n_customers
+        tests: [not_null]

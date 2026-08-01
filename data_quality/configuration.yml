@@ -1,0 +1,34 @@
+# Soda "data source" = describe way to connect data need scan
+
+# Bronze
+data_source bronze:
+  type: trino
+  host: localhost
+  port: 8080
+  http_scheme: http
+  auth_type: NoAuthentication
+  username: soda
+  catalog: iceberg              # source to connect to data
+  schema: bronze
+
+# Silver
+data_source silver:
+  type: trino
+  host: localhost
+  port: 8080
+  http_scheme: http
+  auth_type: NoAuthentication
+  username: soda
+  catalog: iceberg
+  schema: silver
+
+# Gold
+data_source gold:
+  type: trino
+  host: localhost
+  port: 8080
+  http_scheme: http
+  auth_type: NoAuthentication
+  username: soda
+  catalog: iceberg
+  schema: gold

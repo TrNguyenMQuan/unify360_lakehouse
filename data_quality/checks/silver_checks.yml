@@ -1,0 +1,67 @@
+# cover aspect dbt test can reach
+checks for customers:
+  - row_count between 1200 and 1400
+
+  - freshness(_ingested_at):
+      warn: when > 36h
+      fail: when > 48h
+
+  - pct_rows_lost_from_bronze:
+      warn: when > 0
+      fail: when > 5
+      pct_rows_lost_from_bronze query: |
+        with bronze_total as (
+          select (select count(*) from iceberg.bronze.crm_contacts)
+              +  (select count(*) from iceberg.bronze.stripe_customers)
+              +  (select count(*) from iceberg.bronze.app_users) as n
+        ),
+        silver_total as (
+          select count(*) as n from iceberg.silver.customers
+        )
+        select round(100.0 * (bronze.n - silver.n) / nullif(bronze.n, 0), 2)
+        from bronze_total as bronze cross join silver_total as silver
+
+  - failed rows:
+      name: PII guard - email must stay masked in silver
+      fail condition: email_masked not like '_***@%'
+
+checks for identity_map:
+  - row_count between 1200 and 1400
+
+  -  resolution_rate:
+      warn: when not between 0.30 and 0.60
+      resolution_rate query: |
+        select round(1.0 * count(distinct customer_key) / count(*), 3)
+        from iceberg.silver.identity_map
+
+checks for subscriptions:
+  - row_count >= 450
+
+  - missing_count(sub_started_at) = 0
+  - missing_count(sub_updated_at) = 0
+
+  - failed rows:
+      name: sub_updated_at not precede sub_started_at
+      fail condition: sub_updated_at < sub_started_at
+
+checks for events:
+  - row_count >= 9000
+
+  - missing_count(event_at) = 0   # becasue in bronze layer use try cast not cast
+  - invalid_count(duration_s) = 0:
+      valid min: 0    # must be positive
+
+  # this value is configurated on m1 in prod it will config to warn
+  - missing_percent(user_id) between 15 and 35
+
+  - pct_orphan_known_events:
+      warn: when > 0
+      fail: when > 15
+      pct_orphan_known_events query: |
+        select round(100.0 * count_if(c.source_id is null)
+            / nullif(count(*), 0), 2)
+        from iceberg.silver.events as e
+        left join iceberg.silver.customers as c
+          on c.source_system = 'app'
+          and c.source_id = e.user_id
+        where e.user_id is not null

@@ -1,0 +1,147 @@
+checks for crm_contacts:
+  # Completeness
+  - row_count between 400 and 1000
+  - missing_count(contact_email) = 0
+
+  # Consistency
+  - duplicate_count(contact_email) = 0
+
+  # Schema
+  - schema:
+      fail:
+        when required column missing: [contact_email, first_name, company, created_date]
+
+  # Freshness (because _ingested_at in bronze is varchar)
+  - hours_since_ingest:
+      warn: when > 30 # when true is raise
+      fail: when > 48
+      hours_since_ingest query: |
+        SELECT date_diff('hour',
+                          max(from_iso8601_timestamp(_ingested_at)),
+                          current_timestamp)
+        FROM iceberg.bronze.crm_contacts
+
+  # because soda core cant compare with history (when schema change) so contract number of column
+  - column_count = 10:
+      column_count query: |
+        select count(*) from iceberg.information_schema.columns
+        where table_schema = 'bronze' and table_name = 'crm_contacts'
+
+checks for stripe_customers:
+  - row_count between 250 and 700
+
+  - missing_count(email) = 0
+  - missing_count(id) = 0
+
+  - duplicate_count(id) = 0
+  - duplicate_count(email) = 0
+
+  - schema:
+      # warn: because dont run on local need to know about previous history -> need soda cloud
+      #   when schema changes: any
+      fail:
+        when required column missing: [id, email, name, created, "metadata.country"]
+
+  - hours_since_ingest:
+      warn: when > 30
+      fail: when > 48
+      hours_since_ingest query: |
+        SELECT date_diff('hour',
+                          max(from_iso8601_timestamp(_ingested_at)),
+                          current_timestamp)
+        FROM iceberg.bronze.stripe_customers
+
+checks for app_users:
+  - row_count >= 450  # because load as mode watermark
+
+  - missing_count(user_id) = 0
+  - missing_count(account_id) = 0
+  - missing_count(email) = 0
+
+  - pct_duplicate_user_id: # append-only -> cant hope unique
+      warn: when > 2
+      fail: when > 20
+      pct_duplicate_user_id query: |
+        select round(100.0 * (count(*) - count(distinct user_id))
+              / nullif(count(*), 0), 2)
+        from iceberg.bronze.app_users
+
+  - schema:
+      fail:
+        when required column missing:
+          [user_id, account_id, email, first_name, last_name, country, created_at]
+
+  # - hours_since_ingest: because with incremental this check is not meaningful
+  #     warn: when > 30
+  #     fail: when > 48
+  #     hours_since_ingest query: |
+  #       SELECT date_diff('hour',
+  #                         max(from_iso8601_timestamp(_ingested_at)),
+  #                         current_timestamp)
+  #       FROM iceberg.bronze.app_users
+
+checks for app_subscriptions:
+  - row_count >= 450
+  
+  - pct_duplicate_subscription_id:
+      warn: when > 2
+      fail: when > 20
+      pct_duplicate_subscription_id query: |
+        select round(100.0 * (count(*) - count(distinct subscription_id))
+                   / nullif(count(*), 0), 2)
+        from iceberg.bronze.app_subscriptions
+  - missing_count(account_id) = 0
+
+  - schema:
+      fail:
+        when required column missing:
+          [subscription_id, account_id, plan, status, started_at, updated_at]
+  # - hours_since_ingest: it just prove new time when new data ingested
+  #     warn: when > 30
+  #     fail: when > 48
+  #     hours_since_ingest query: |
+  #       SELECT date_diff('hour',
+  #                         max(from_iso8601_timestamp(_ingested_at)),
+  #                         current_timestamp)
+  #       FROM iceberg.bronze.app_subscriptions
+
+checks for app_events:
+  - row_count >= 9000
+
+  - missing_count(event_id) = 0
+  - missing_count(anonymous_id) = 0
+  - missing_count(event_type) = 0
+
+  - pct_duplicate_event_id:
+      warn: when > 2
+      fail: when > 20
+      pct_duplicate_event_id query: |
+        select round(100.0 * (count(*) - count(distinct event_id))
+              / nullif(count(*), 0), 2)
+        from iceberg.bronze.app_events
+
+  - missing_percent(user_id) between 15 and 35  # because without login user dont have id
+
+  - schema:
+      fail:
+        when required column missing:
+          [event_id, event_type, anonymous_id, user_id, "timestamp"]
+
+  # - hours_since_ingest: it not prove pipeline is run properly
+  #     warn: when > 30
+  #     fail: when > 48
+  #     hours_since_ingest query: |
+  #       SELECT date_diff('hour',
+  #                         max(from_iso8601_timestamp(_ingested_at)),
+  #                         current_timestamp)
+  #       FROM iceberg.bronze.app_events
+
+  - hours_since_last_event:
+      warn: when not between 0 and 6
+      fail: when not between 0 and 24
+      hours_since_last_event query: |
+        SELECT date_diff('hour',
+                          max(cast("timestamp" as timestamp(6))),
+                          current_timestamp)
+        FROM iceberg.bronze.app_events
+

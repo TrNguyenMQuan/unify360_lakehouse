@@ -1,20 +1,21 @@
 # Ingestion & Lakehouse
-trino
-pyiceberg[s3fs]     # read and write table iceberg from python
-psycopg[binary]     # connect to postgres
-pymongo             # source mongo
-faker               # generate mock data
+trino==0.338.0
+pyiceberg[s3fs]==0.11.1     # read and write table iceberg from python
+psycopg[binary]==3.3.4      # connect to postgres
+pymongo==4.17.0             # source mongo
+faker==40.28.1              # generate mock data
 
 # Transform & quality
-dbt-trino           # dbt run on trino
-soda-core-trino
+dbt-trino==1.10.2           # dbt run on trino
+soda-core-trino==3.5.6
+setuptools<81               # soda-core 3.5.6 chưa tương thích setuptools>=81
 
 # Dev
-ruff
+ruff==0.15.20
 
 # Df
-pandas
-pyarrow
+pandas==3.0.3
+pyarrow==25.0.0
 
 # env
-dotenv
+python-dotenv==1.2.2

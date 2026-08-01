@@ -20,6 +20,7 @@ select
         when in_stripe = 1 and has_active_paid = 1 then '1_matched (billed + active)'
         when in_stripe = 1 and has_active_paid = 0 then '2_stripe_only (billed, no active sub)'
         when in_stripe = 0 and has_active_paid = 1 then '3_app_only (active sub, not billed)'
+        else '4_neither'
     end             as recon_status,
     count(*)        as n_customers
 from base
