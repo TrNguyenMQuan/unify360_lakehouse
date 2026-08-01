@@ -2,10 +2,10 @@
 from __future__ import annotations
 import os
 import random
-from datetime import timedelta
 from pymongo import MongoClient
 from dotenv import load_dotenv
-from generators.identities import build_persons, SEED
+from datetime import timedelta # add to fix bug mock data of timestap in event is far future which detect by soda
+from generators.identities import build_persons, SEED, REFERENCE_NOW
 
 load_dotenv()
 
@@ -48,6 +48,7 @@ def _event(anon_id, user_id, ts, i) -> dict:
 def build_events() -> list[dict]:
     persons = build_persons()
     events, i = [], 0
+
     for p in persons:
         if rng.random() > 0.80:
             continue
@@ -59,7 +60,8 @@ def build_events() -> list[dict]:
 
         # after login
         for _ in range(rng.randint(5, 30)):
-            ts = p.signup_at + timedelta(days=rng.randint(0, 120), hours=rng.randint(0, 23))
+            ts = min(p.signup_at + timedelta(days=rng.randint(0, 120),
+                                             hours=rng.randint(0, 23)), REFERENCE_NOW)
             events.append(_event(p.event_anonymous_id, p.app_user_id, ts, i)); i += 1
     rng.shuffle(events)
     return events

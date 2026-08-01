@@ -7,6 +7,10 @@ from generators.identities import build_persons, DATA_DIR, SEED
 
 LEAD_SOURCES = ["organic", "paid_ads", "referral", "event", "cold_outreach"]
 
+# demo for schema evolution
+INDUSTRIES = ["saas", "fintech", "ecommerce", "healthcare", "logistics", "education"]
+industry_rng = random.Random(SEED + 11)
+
 rng = random.Random(SEED + 1)
 crm_fake = Faker()
 crm_fake.seed_instance(SEED + 1)
@@ -34,6 +38,7 @@ def build_crm_rows() -> list[dict]:
                 "lead_source": rng.choice(LEAD_SOURCES),
                 "campaign": crm_fake.catch_phrase(),
                 "created_date": person.signup_at.date().isoformat(),
+                "industry": industry_rng.choice(INDUSTRIES) # demo
             })
 
     for _ in range(50):
@@ -46,6 +51,7 @@ def build_crm_rows() -> list[dict]:
             "lead_source": rng.choice(LEAD_SOURCES),
             "campaign": crm_fake.catch_phrase(),
             "created_date": crm_fake.date_between("-2y", "today").isoformat(),
+            "industry": industry_rng.choice(INDUSTRIES),    # demo
         })
 
     rng.shuffle(rows)

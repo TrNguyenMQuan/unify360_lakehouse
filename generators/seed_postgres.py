@@ -5,7 +5,7 @@ import random
 from datetime import timedelta
 import psycopg
 from dotenv import load_dotenv
-from generators.identities import build_persons, SEED
+from generators.identities import build_persons, SEED, REFERENCE_NOW
 
 load_dotenv()
 
@@ -62,7 +62,8 @@ def main() -> None:
                       p.last_name, p.country, p.signup_at))
         subs.append((30_000 + p.person_id, acc_id,
                      rng.choice(PLANS), rng.choice(SUB_STATUS),
-                     p.signup_at, p.signup_at + timedelta(days=rng.randint(0, 300))))
+                     p.signup_at,
+                     min(p.signup_at + timedelta(days=rng.randint(0, 300)), REFERENCE_NOW)))
 
     with psycopg.connect(**CONN) as conn, conn.cursor() as cur:
         for stmt in DDL:

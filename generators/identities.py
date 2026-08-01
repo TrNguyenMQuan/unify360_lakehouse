@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from faker import Faker
 
@@ -10,7 +10,8 @@ from faker import Faker
 SEED = 42
 N_PERSONS = 500
 DATA_DIR = Path("data")
-
+REFERENCE_NOW = datetime(2026, 8, 1) # use stable timestamp -> same seed -> same data -> reproducible
+REFERENCE_START = REFERENCE_NOW - timedelta(days=730)
 
 @dataclass
 class Person:
@@ -42,7 +43,7 @@ def build_persons(n: int = N_PERSONS) -> list[Person]:
                 email=f"{first}.{last}.{i}@{domain}".lower(),
                 company=fake.company(),
                 country=fake.country_code(),
-                signup_at=fake.date_time_between("-2y", "now"),
+                signup_at=fake.date_time_between(REFERENCE_START, REFERENCE_NOW),
                 stripe_customer_id="cus_" + fake.bothify("??######"),
                 app_user_id=10_000 + i,
                 event_anonymous_id=fake.uuid4(),
