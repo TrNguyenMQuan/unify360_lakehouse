@@ -21,4 +21,4 @@ class MongoConnector(Connector):
 
         # json_normalize: {'properties' : {...} and 'context': {...}}
         df = pd.json_normalize(docs)
-        return df.astype(str)
+        return df # not asstype because if astype(str) convert_dtypes() in engine not work

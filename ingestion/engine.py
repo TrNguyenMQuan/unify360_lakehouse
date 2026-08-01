@@ -2,8 +2,6 @@
 from __future__ import annotations
 import argparse
 import yaml
-import json
-from pathlib import Path
 import pandas as pd
 import pyarrow as pa    # Iceberg write from arrow table
 from ingestion.connectors.base import Connector
@@ -12,10 +10,10 @@ from ingestion.connectors.rest import RestConnector
 from ingestion.connectors.jdbc import JdbcConnector
 from ingestion.connectors.mongo import MongoConnector
 from ingestion.catalog import get_catalog
+from pyiceberg.exceptions import NoSuchTableError # iceberg table property
 
 CONFIG_PATH = "ingestion/config/sources.yml"
-STATE_PATH = Path("ingestion/state.json")
-META_COLS = ("_source", "_ingested_at")     # add column add in layer bronze
+WATERMARK_PROP = "unify360.watermark"
 
 CONNECTORS: dict[str, type[Connector]] = {
     "csv": CsvConnector,
@@ -28,50 +26,62 @@ def load_config() -> dict:
     with open(CONFIG_PATH) as file:
         return yaml.safe_load(file)["sources"]
 
-def load_state() -> dict:
-    return json.loads(STATE_PATH.read_text()) if STATE_PATH.exists() else {}
-
-def save_state(state: dict) -> None:
-    STATE_PATH.write_text(json.dumps(state, indent=2, default=str))
-
 # pyiceberg write from pyarrow not directly with pandas
 def to_bronze_arrow(df: pd.DataFrame) -> pa.Table:
-    return pa.Table.from_pandas(df.astype("string"), preserve_index=False)
+    # convert_dtypes: int + null -> int64 nullable
+    return pa.Table.from_pandas(
+        df.convert_dtypes().astype("string"), preserve_index=False
+    )  # one bug define user_id in table events is float but source_id in customer is int
 
-def ingest_by_connector(name: str, cfg: dict, state: dict, catalog) -> None:
+def read_watermark(catalog, identifier: str) -> str | None:
+    try:
+        tbl = catalog.load_table(identifier)
+    except NoSuchTableError:
+        return None
+    return tbl.properties.get(WATERMARK_PROP)
+
+def ingest_by_connector(name: str, cfg: dict, catalog) -> None:
     conn_type = cfg["type"]
     if conn_type not in CONNECTORS:
         raise ValueError(f"Unknown type '{conn_type}'")
 
     connector: Connector = CONNECTORS[conn_type](cfg)
     mode = cfg.get("load_mode", "full")
+    identifier = cfg["target_bronze"]
 
-    since = state.get(name) if mode == "incremental" else None
+    since = read_watermark(catalog, identifier) if mode == "incremental" else None
     df = connector.extract(since=since)
     if df.empty:
         print(f"{name}: no have new records")
         return
 
-    if mode == "incremental":
-        state[name] = df[cfg["watermark"]].max()
+    # calculate watermark before astype
+    new_wm = str(df[cfg["watermark"]].max()) if mode == "incremental" else None
 
     df["_source"] = name
     df["_ingested_at"] = pd.Timestamp.now(tz="UTC").isoformat()
 
-    # target: "bronze.crm_contacts" -> namespace=bronze, table=crm_contacts
-    namespace, table = cfg["target_bronze"].split(".")
-    identifier = f"{namespace}.{table}"
+    namespace, table = identifier.split(".")
     arrow = to_bronze_arrow(df)
 
-    catalog.create_namespace_if_not_exists(namespace)   # idemppotent
+    catalog.create_namespace_if_not_exists(namespace)
+    # it not involed with schema it just create table
     tbl = catalog.create_table_if_not_exists(identifier, schema=arrow.schema)
 
-    if mode == "incremental":
-        tbl.append(arrow)       # new snapshot
-    else:
-        tbl.overwrite(arrow)    # full refresh
+    # 1 transaction = 1 nessie commit included data and watermark
+    with tbl.transaction() as tx:
+        # schema evolution
+        with tx.update_schema() as update:
+            update.union_by_name(arrow.schema) # map by name -> add column or change order safe
+
+        if mode == "incremental":
+            tx.append(arrow)
+            tx.set_properties({WATERMARK_PROP: new_wm})
+        else:
+            tx.overwrite(arrow)
 
     print(f"Load {name}: {len(df)} rows -> iceberg.{identifier} ({mode})")
+
 
 def main() -> None:
     parser = argparse.ArgumentParser()
@@ -79,7 +89,7 @@ def main() -> None:
     parser.add_argument("--all", action="store_true", help="run all sources")
     args = parser.parse_args()
 
-    sources, state = load_config(), load_state()
+    sources = load_config()
     if args.all:
         targets = sources
     elif args.source:
@@ -89,8 +99,7 @@ def main() -> None:
 
     catalog = get_catalog()
     for name, cfg in targets.items():
-        ingest_by_connector(name, cfg, state, catalog)
-    save_state(state)
+        ingest_by_connector(name, cfg, catalog)
 
 if __name__ == "__main__":
     main()

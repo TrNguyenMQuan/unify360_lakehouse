@@ -23,5 +23,5 @@ class JdbcConnector(Connector):
             cols = [d[0] for d in cur.description]
             rows = cur.fetchall()
 
-        return pd.DataFrame(rows, columns=cols).astype(str)
+        return pd.DataFrame(rows, columns=cols)
 

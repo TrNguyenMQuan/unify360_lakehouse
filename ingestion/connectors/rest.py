@@ -12,4 +12,4 @@ class RestConnector(Connector):
 
         # json_normalize: {'metadata': {'country': 'VN'}} -> column metadata.country
         df = pd.json_normalize(records)
-        return df.astype(str)   # bronze raw landing
+        return df

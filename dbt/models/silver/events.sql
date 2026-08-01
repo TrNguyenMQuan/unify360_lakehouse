@@ -13,7 +13,7 @@ select
     event_type,
     anonymous_id,
     user_id,            -- null is okay because without login user dont have user id
-    "timestamp"                                 as event_at,
+    try_cast("timestamp" as timestamp(6))       as event_at,
     "properties.page"                           as page,
     "properties.referrer"                       as referrer,
     "context.device"                            as device,
