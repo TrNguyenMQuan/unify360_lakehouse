@@ -55,7 +55,7 @@ checks for events:
   - missing_percent(user_id) between 15 and 35
 
   - pct_orphan_known_events:
-      warn: when > 0
+      warn: when > 12 # because config when generate always have 70% people in app
       fail: when > 15
       pct_orphan_known_events query: |
         select round(100.0 * count_if(c.source_id is null)
