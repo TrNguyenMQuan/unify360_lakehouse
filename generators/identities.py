@@ -5,12 +5,22 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
 from faker import Faker
+import os
+
+def _resolve_reference_now() -> datetime:
+    # anchor time for entire dataset
+    raw = os.getenv("UNIFY_REFERENCE_NOW")
+    if raw:
+        return datetime.fromisoformat(raw) # stop if right now
+
+    # truncate to 00:00: if seed many time in a day always reproducibility
+    return datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
 
 # Config
 SEED = 42
 N_PERSONS = 500
-DATA_DIR = Path("data")
-REFERENCE_NOW = datetime(2026, 8, 1) # use stable timestamp -> same seed -> same data -> reproducible
+DATA_DIR = Path("data")  # use for if want to gen mock data in local
+REFERENCE_NOW = _resolve_reference_now() # use stable timestamp -> same seed -> same data -> reproducible
 REFERENCE_START = REFERENCE_NOW - timedelta(days=730)
 
 @dataclass

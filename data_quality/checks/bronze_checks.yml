@@ -82,7 +82,7 @@ checks for app_users:
 
 checks for app_subscriptions:
   - row_count >= 450
-  
+
   - pct_duplicate_subscription_id:
       warn: when > 2
       fail: when > 20
@@ -137,8 +137,8 @@ checks for app_events:
   #       FROM iceberg.bronze.app_events
 
   - hours_since_last_event:
-      warn: when not between 0 and 6
-      fail: when not between 0 and 24
+      warn: when not between 0 and 26
+      fail: when not between 0 and 50
       hours_since_last_event query: |
         SELECT date_diff('hour',
                           max(cast("timestamp" as timestamp(6))),
