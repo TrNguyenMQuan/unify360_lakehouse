@@ -3,8 +3,8 @@
 checks for dim_customer:
   - customers_lost_from_silver = 0:
       customers_lost_from_silver query: |
-        select (select count(distinct customer_key) from iceberg.silver.identity_map)
-            -  (select count(*)                     from iceberg.gold.dim_customer)
+        select (select count(distinct customer_key) from silver.identity_map)
+            -  (select count(*)                     from gold.dim_customer)
 
   - failed rows:
       name: n_source_records must equal total of source flags
@@ -18,12 +18,12 @@ checks for fact_subscriptions:
   - scd2_history_versions:
       warn: when < 1
       scd2_history_versions query: |
-        select count(*) - count_if(is_current) from iceberg.gold.fact_subscriptions
+        select count(*) - count_if(is_current) from gold.fact_subscriptions
 
   - subscriptions_lost_in_scd2 = 0:
       subscriptions_lost_in_scd2 query: |
-        select (select count(*)             from iceberg.silver.subscriptions)
-            -  (select count_if(is_current) from iceberg.gold.fact_subscriptions)
+        select (select count(*)             from silver.subscriptions)
+            -  (select count_if(is_current) from gold.fact_subscriptions)
 
 checks for mart_mrr:
   - row_count = 4
@@ -32,19 +32,19 @@ checks for mart_mrr:
       warn: when not between 30000 and 50000
       fail: when not between 20000 and 80000
       total_mrr query: |
-        select sum(mrr) from iceberg.gold.mart_mrr
+        select sum(mrr) from gold.mart_mrr
 
   - arpu_per_customer: # arpu is averange revenue per user (included free) = mrr / amout user payment
       warn: when not between 55 and 90
       arpu_per_customer query: |
-        select round(1.0 * (select sum(mrr) from iceberg.gold.mart_mrr)
-              / nullif((select count(*) from iceberg.gold.dim_customer), 0), 2)
+        select round(1.0 * (select sum(mrr) from gold.mart_mrr)
+              / nullif((select count(*) from gold.dim_customer), 0), 2)
 
   - top_plan_revenue_share: # metric for bussiness
       warn: when > 85
       top_plan_revenue_share query: |
         select round(100.0 * max(mrr) / nullif(sum(mrr), 0), 2)
-        from iceberg.gold.mart_mrr
+        from gold.mart_mrr
 
 checks for mart_funnel:
   - row_count = 1
@@ -64,4 +64,4 @@ checks for recon_billing_vs_app:
       pct_revenue_leakage query: |
         select round(100.0 * sum(if(recon_status like '3_app_only%', n_customers, 0))
               / nullif(sum(n_customers), 0), 2)
-        from iceberg.gold.recon_billing_vs_app
+        from gold.recon_billing_vs_app

@@ -11,12 +11,12 @@ checks for customers:
       fail: when > 5
       pct_rows_lost_from_bronze query: |
         with bronze_total as (
-          select (select count(*) from iceberg.bronze.crm_contacts)
-              +  (select count(*) from iceberg.bronze.stripe_customers)
-              +  (select count(*) from iceberg.bronze.app_users) as n
+          select (select count(*) from bronze.crm_contacts)
+              +  (select count(*) from bronze.stripe_customers)
+              +  (select count(*) from bronze.app_users) as n
         ),
         silver_total as (
-          select count(*) as n from iceberg.silver.customers
+          select count(*) as n from silver.customers
         )
         select round(100.0 * (bronze.n - silver.n) / nullif(bronze.n, 0), 2)
         from bronze_total as bronze cross join silver_total as silver
@@ -32,7 +32,7 @@ checks for identity_map:
       warn: when not between 0.30 and 0.60
       resolution_rate query: |
         select round(1.0 * count(distinct customer_key) / count(*), 3)
-        from iceberg.silver.identity_map
+        from silver.identity_map
 
 checks for subscriptions:
   - row_count >= 450
@@ -60,8 +60,8 @@ checks for events:
       pct_orphan_known_events query: |
         select round(100.0 * count_if(c.source_id is null)
             / nullif(count(*), 0), 2)
-        from iceberg.silver.events as e
-        left join iceberg.silver.customers as c
+        from silver.events as e
+        left join silver.customers as c
           on c.source_system = 'app'
           and c.source_id = e.user_id
         where e.user_id is not null

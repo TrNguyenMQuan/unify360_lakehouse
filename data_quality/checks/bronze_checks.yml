@@ -19,12 +19,12 @@ checks for crm_contacts:
         SELECT date_diff('hour',
                           max(from_iso8601_timestamp(_ingested_at)),
                           current_timestamp)
-        FROM iceberg.bronze.crm_contacts
+        FROM crm_contacts
 
   # because soda core cant compare with history (when schema change) so contract number of column
   - column_count = 10:
       column_count query: |
-        select count(*) from iceberg.information_schema.columns
+        select count(*) from information_schema.columns
         where table_schema = 'bronze' and table_name = 'crm_contacts'
 
 checks for stripe_customers:
@@ -49,7 +49,7 @@ checks for stripe_customers:
         SELECT date_diff('hour',
                           max(from_iso8601_timestamp(_ingested_at)),
                           current_timestamp)
-        FROM iceberg.bronze.stripe_customers
+        FROM stripe_customers
 
 checks for app_users:
   - row_count >= 450  # because load as mode watermark
@@ -64,7 +64,7 @@ checks for app_users:
       pct_duplicate_user_id query: |
         select round(100.0 * (count(*) - count(distinct user_id))
               / nullif(count(*), 0), 2)
-        from iceberg.bronze.app_users
+        from app_users
 
   - schema:
       fail:
@@ -89,7 +89,7 @@ checks for app_subscriptions:
       pct_duplicate_subscription_id query: |
         select round(100.0 * (count(*) - count(distinct subscription_id))
                    / nullif(count(*), 0), 2)
-        from iceberg.bronze.app_subscriptions
+        from app_subscriptions
   - missing_count(account_id) = 0
 
   - schema:
@@ -118,7 +118,7 @@ checks for app_events:
       pct_duplicate_event_id query: |
         select round(100.0 * (count(*) - count(distinct event_id))
               / nullif(count(*), 0), 2)
-        from iceberg.bronze.app_events
+        from app_events
 
   - missing_percent(user_id) between 15 and 35  # because without login user dont have id
 
@@ -143,5 +143,5 @@ checks for app_events:
         SELECT date_diff('hour',
                           max(cast("timestamp" as timestamp(6))),
                           current_timestamp)
-        FROM iceberg.bronze.app_events
+        FROM app_events
 
