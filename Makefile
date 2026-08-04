@@ -105,4 +105,11 @@ dq-inject-dup:	## Error 2 (consistency): duplicate 5 rows
 
 dq-inject-drop:	## Error 3 (schema): DROP COLUMN company
 	@$(TRINO_DQ) "ALTER TABLE crm_contacts DROP COLUMN company"
-	@echo ">> Expected: Schema Check -> FAIL (thieu company) + column_count = 10 -> FAIL (con 9)"
+	@echo ">> Expected: Schema Check -> FAIL (lack of company) + column_count = 10 -> FAIL (con 9)"
+
+demo-scd2:	## create a change plan -> demo SCD-2
+	@docker exec lakehouse-postgres-app psql -U unify -d appdb -c \
+	  "UPDATE app.subscriptions SET plan='pro', updated_at=now() WHERE subscription_id=30004;"
+	@$(MAKE) ingest
+	@$(MAKE) build
+	@echo ">> fact_subscriptions: expected 454 dong / 453 current / 1 history"
