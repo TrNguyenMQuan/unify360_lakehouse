@@ -41,7 +41,8 @@ services:
       - "19120:19120"   # REST API + UI
     environment:
       nessie.version.store.type: ROCKSDB  # presitent catalog
-      nessie.version.store.persist.rocks-db.path: /nessie/data
+      # nessie.version.store.persist.rocks-db.path: /nessie/data -> commit will disappeare when docker compose down
+      nessie.version.store.persist.rocks.database-path: /deployments/data
       # REST API Iceberg config about S3 store in catalog
       nessie.catalog.default-warehouse: warehouse   # root dir in minio where iceberg store data and metadata
       nessie.catalog.warehouses.warehouse.location: s3://lakehouse/warehouse
@@ -53,7 +54,7 @@ services:
       nessie.catalog.secrets.access-key.name: ${MINIO_ROOT_USER}
       nessie.catalog.secrets.access-key.secret: ${MINIO_ROOT_PASSWORD}
     volumes:
-      - nessie_data:/nessie/data
+      - nessie_data:/deployments/data # store nessie-data and rockdb
     depends_on:
       minio-init:
         condition: service_completed_successfully
@@ -68,7 +69,7 @@ services:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
     volumes:
-      - ./trino/etc/catalog/iceberg.properties:/etc/trino/catalog/iceberg.properties:ro
+      - ./trino/etc/catalog:/etc/trino/catalog:ro # mount entire folder but folder mount will above folder root catalog
     depends_on:
       minio-init:
         condition: service_completed_successfully
