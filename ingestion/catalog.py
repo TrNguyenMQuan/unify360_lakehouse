@@ -19,7 +19,7 @@ def get_catalog() -> RestCatalog:
             "warehouse": NESSIE_WAREHOUSE,
             "s3.endpoint": MINIO_ENDPOINT,
             "s3.access-key-id": S3_OPTS["key"],
-            "s3.secret-access-key": S3_OPTS["key"],
+            "s3.secret-access-key": S3_OPTS["secret"],
             "s3.path-style-access": "true",
             "s3.region": "us-east-1"
         }

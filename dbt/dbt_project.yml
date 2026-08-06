@@ -18,4 +18,8 @@ models:
       +schema: silver
     gold:
       +materialized: table # models/gold
-      +schema: gold 
+      +schema: gold
+
+seeds:
+  lakehouse:
+    +schema: seeds 

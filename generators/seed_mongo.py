@@ -56,13 +56,15 @@ def build_events() -> list[dict]:
         # incognito before sigup
         for _ in range(rng.randint(2, 8)):
             ts = p.signup_at - timedelta(days=rng.randint(1, 30), hours=rng.randint(0, 23))
-            events.append(_event(p.event_anonymous_id, None, ts, i)); i += 1
+            events.append(_event(p.event_anonymous_id, None, ts, i))
+            i += 1
 
         # after login
         for _ in range(rng.randint(5, 30)):
             ts = min(p.signup_at + timedelta(days=rng.randint(0, 120),
                                              hours=rng.randint(0, 23)), REFERENCE_NOW)
-            events.append(_event(p.event_anonymous_id, p.app_user_id, ts, i)); i += 1
+            events.append(_event(p.event_anonymous_id, p.app_user_id, ts, i))
+            i += 1
     rng.shuffle(events)
     return events
 

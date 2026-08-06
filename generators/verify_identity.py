@@ -1,6 +1,8 @@
 # demonstrate one person will appear in entire 4 source with 4 difference keys
 from __future__ import annotations
-import csv, json, os
+import csv
+import json
+import os
 import psycopg
 from pymongo import MongoClient
 from dotenv import load_dotenv
