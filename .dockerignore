@@ -1,0 +1,10 @@
+.venv/
+.git/
+data/
+logs/
+dbt/target/
+dbt/logs/
+__pycache__/
+*.pyc
+.ruff_cache/
+.DS_Store

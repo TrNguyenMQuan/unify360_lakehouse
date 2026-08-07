@@ -9,6 +9,7 @@ faker==40.28.1              # generate mock data
 dbt-trino==1.10.2           # dbt run on trino
 soda-core-trino==3.5.6
 setuptools<81               # soda-core 3.5.6 chưa tương thích setuptools>=81
+dbt-core==1.11.12
 
 # Dev
 ruff==0.15.20

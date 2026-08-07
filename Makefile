@@ -3,9 +3,11 @@
 SHELL := /bin/bash
 
 # Config
-VENV		:= .venv/bin
+VENV		?= .venv/bin
 PY			:= $(VENV)/python
+DBT			:= $(VENV)/dbt
 SODA 		:= $(VENV)/soda
+RUFF 		:= $(VENV)/ruff
 TRINO 		:= docker exec lakehouse-trino trino
 SODA_CONF	?= data_quality/configuration.yml
 
@@ -42,18 +44,19 @@ ingest-reset: ## ingest again must to drop incremental tall
 		$(MAKE) ingest
 
 build:	## dbt build
-	cd dbt && ../$(VENV)/dbt build --profiles-dir .
+	$(DBT) build --project-dir dbt --profiles-dir dbt
 
 test:	## dbt test
-	cd dbt && ../$(VENV)/dbt test --profiles-dir .
+	$(DBT) test --project-dir dbt --profiles-dir dbt
 
-scan-%:	## scan 1 layer
-	@$(SODA) scan -d $* -c $(SODA_CONF) data_quality/checks/$*_checks.yml ; \
-		code=$$? ; \
-		if [ $$code -le 1 ]; then \
-		[ $$code -eq 1 ] && echo ">> [$*] WARNING" ; \
-		exit 0 ; \
-		else exit $$code ; fi
+scan-%:	## scan 1 layer (warn not stop gate; fail and crash stop)
+	@out=$$($(SODA) scan -d $* -c $(SODA_CONF) data_quality/checks/$*_checks.yml 2>&1) ; code=$$? ; \
+	echo "$$out" ; \
+	if ! echo "$$out" | grep -q "Scan summary"; then \
+		echo ">> [$*] SODA cant run - crash before scan (exit $$code)" ; exit 3 ; fi ; \
+	if [ $$code -eq 1 ]; then echo ">> [$*] WARNING" ; exit 0 ; fi ; \
+	exit $$code
+
 
 scan:	## scan entire
 	@$(MAKE) scan-bronze scan-silver scan-gold
@@ -62,7 +65,7 @@ verify:	## gate full = dbt test + scan entire
 	@$(MAKE) test scan
 
 lint:	## ruff check entire repo
-	$(VENV)/ruff check .
+	$(RUFF) check .
 
 refresh: ## run entire pipeline again
 	@$(MAKE) seed
