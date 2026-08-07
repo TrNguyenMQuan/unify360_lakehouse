@@ -1,0 +1,45 @@
+# use for dbt read env when build in airflow
+
+# Bronze
+data_source bronze:
+  type: trino
+  host: trino
+  port: 8080
+  http_scheme: http
+  auth_type: NoAuthentication
+  username: soda
+  catalog: iceberg              # source to connect to data
+  schema: bronze
+
+# Silver
+data_source silver:
+  type: trino
+  host: trino
+  port: 8080
+  http_scheme: http
+  auth_type: NoAuthentication
+  username: soda
+  catalog: iceberg
+  schema: silver
+
+# Gold
+data_source gold:
+  type: trino
+  host: trino
+  port: 8080
+  http_scheme: http
+  auth_type: NoAuthentication
+  username: soda
+  catalog: iceberg
+  schema: gold
+
+# bronze in branch dq_sandbox
+data_source bronze_dq:
+  type: trino
+  host: trino
+  port: 8080
+  http_scheme: http
+  auth_type: NoAuthentication
+  username: soda
+  catalog: iceberg_dq
+  schema: bronze

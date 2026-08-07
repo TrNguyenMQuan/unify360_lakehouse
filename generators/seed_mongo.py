@@ -1,20 +1,9 @@
 # event log -> mongo (TIME-AWARE: dòng sự kiện theo ngày)
 from __future__ import annotations
-import os
 from datetime import timedelta
 from pymongo import MongoClient
-from dotenv import load_dotenv
 from generators.identities import build_persons, source_rng, AS_OF
-
-load_dotenv()
-
-MONGO_KW = dict(
-    host="localhost",
-    port=27017,
-    username=os.environ["MONGO_USER"],
-    password=os.environ["MONGO_PASSWORD"],
-    authSource="admin",
-)
+from ingestion.config import MONGO
 
 EVENT_TYPES = ["page_view", "feature_click", "session"]
 PAGES = ["/", "/pricing", "/docs", "/dashboard", "/settings"]
@@ -100,7 +89,7 @@ def build_events(as_of=None) -> list[dict]:
 
 def main() -> None:
     events = build_events()
-    with MongoClient(**MONGO_KW) as client:
+    with MongoClient(**MONGO) as client:
         coll = client["events_db"]["events"]
         coll.delete_many({})              # idempotent: state = f(as_of)
         coll.insert_many(events)

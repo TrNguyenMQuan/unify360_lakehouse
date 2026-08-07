@@ -5,10 +5,11 @@ lakehouse:
     dev:
       type: trino # adapter dbt-trino
       method: none
-      host: localhost
+      host: "{{ env_var('TRINO_HOST', 'localhost') }}"
       port: 8080
       user: dbt
       http_scheme: http
       database: iceberg   # catalog of trino
       schema: scratch
       threads: 4
+

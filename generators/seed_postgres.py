@@ -1,19 +1,8 @@
 # app -> postgres container (TIME-AWARE: state phát lại từ timeline)
 from __future__ import annotations
-import os
 import psycopg
-from dotenv import load_dotenv
 from generators.identities import build_persons, source_rng, AS_OF
-
-load_dotenv()
-
-CONN = dict(
-    host="localhost",
-    port=5434,
-    dbname=os.environ["APP_PG_DB"],
-    user=os.environ["APP_PG_USER"],
-    password=os.environ["APP_PG_PASSWORD"],
-)
+from ingestion.config import POSTGRES
 
 APP_MEMBERSHIP_PROB = 0.90   # 90% person canonical have account
 
@@ -65,7 +54,7 @@ def main() -> None:
         subs.append((30_000 + p.person_id, acc_id, plan, status,
                      p.signup_at, updated_at))
 
-    with psycopg.connect(**CONN) as conn, conn.cursor() as cur:
+    with psycopg.connect(**POSTGRES) as conn, conn.cursor() as cur:
         for stmt in DDL:
             cur.execute(stmt)
         cur.executemany("INSERT INTO app.accounts VALUES (%s,%s,%s)", accounts)

@@ -7,7 +7,7 @@ VENV		:= .venv/bin
 PY			:= $(VENV)/python
 SODA 		:= $(VENV)/soda
 TRINO 		:= docker exec lakehouse-trino trino
-SODA_CONF	:= data_quality/configuration.yml
+SODA_CONF	?= data_quality/configuration.yml
 
 # Incremental table: reset watermark = drop table
 INCREMENTAL_TABLES	:= app_users app_subscriptions app_events
