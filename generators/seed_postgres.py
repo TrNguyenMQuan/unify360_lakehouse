@@ -1,11 +1,9 @@
-# app -> postgress container
+# app -> postgres container (TIME-AWARE: state phát lại từ timeline)
 from __future__ import annotations
 import os
-import random
-from datetime import timedelta
 import psycopg
 from dotenv import load_dotenv
-from generators.identities import build_persons, SEED, REFERENCE_NOW
+from generators.identities import build_persons, source_rng, AS_OF
 
 load_dotenv()
 
@@ -17,9 +15,7 @@ CONN = dict(
     password=os.environ["APP_PG_PASSWORD"],
 )
 
-PLANS = ["free", "basic", "pro", "enterprise"]
-SUB_STATUS = ["active", "active", "active", "canceled"]
-rng = random.Random(SEED + 3)
+APP_MEMBERSHIP_PROB = 0.90   # 90% person canonical have account
 
 DDL = [
     "DROP SCHEMA IF EXISTS app CASCADE",
@@ -50,20 +46,24 @@ DDL = [
 
 
 def main() -> None:
-    persons = build_persons()
+    # build_persons(AS_OF) already filter
+    persons = build_persons(AS_OF)
     accounts, users, subs = [], [], []
 
     for p in persons:
-        if rng.random() > 0.90:
+        # memebership stable by person_id: who have app account always have
+        if source_rng(p.person_id, "app").random() > APP_MEMBERSHIP_PROB:
             continue
+
         acc_id = 20_000 + p.person_id
+        # updated_at = real day change -> always <= as_of
+        plan, status, updated_at = p.state_at(AS_OF)
+
         accounts.append((acc_id, p.company, p.signup_at))
         users.append((p.app_user_id, acc_id, p.email, p.first_name,
                       p.last_name, p.country, p.signup_at))
-        subs.append((30_000 + p.person_id, acc_id,
-                     rng.choice(PLANS), rng.choice(SUB_STATUS),
-                     p.signup_at,
-                     min(p.signup_at + timedelta(days=rng.randint(0, 300)), REFERENCE_NOW)))
+        subs.append((30_000 + p.person_id, acc_id, plan, status,
+                     p.signup_at, updated_at))
 
     with psycopg.connect(**CONN) as conn, conn.cursor() as cur:
         for stmt in DDL:
@@ -71,9 +71,9 @@ def main() -> None:
         cur.executemany("INSERT INTO app.accounts VALUES (%s,%s,%s)", accounts)
         cur.executemany("INSERT INTO app.users VALUES (%s,%s,%s,%s,%s,%s,%s)", users)
         cur.executemany("INSERT INTO app.subscriptions VALUES (%s,%s,%s,%s,%s,%s)", subs)
-        conn.commit()                             # PHẢI commit mới lưu thật
+        conn.commit()
 
-    print(f"Postgres app: {len(accounts)} accounts, "
+    print(f"Postgres app @ {AS_OF:%Y-%m-%d}: {len(accounts)} accounts, "
           f"{len(users)} users, {len(subs)} subscriptions")
 
 

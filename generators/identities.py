@@ -6,22 +6,55 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from faker import Faker
 import os
-
-def _resolve_reference_now() -> datetime:
-    # anchor time for entire dataset
-    raw = os.getenv("UNIFY_REFERENCE_NOW")
-    if raw:
-        return datetime.fromisoformat(raw) # stop if right now
-
-    # truncate to 00:00: if seed many time in a day always reproducibility
-    return datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+import random
 
 # Config
+EPOCH = datetime(2024, 1, 1) # stable point every event created will relative to EPOCH
 SEED = 42
 N_PERSONS = 500
 DATA_DIR = Path("data")  # use for if want to gen mock data in local
-REFERENCE_NOW = _resolve_reference_now() # use stable timestamp -> same seed -> same data -> reproducible
-REFERENCE_START = REFERENCE_NOW - timedelta(days=730)
+
+POOL_SIZE = 900          # amount person will be created
+ARRIVAL_SPAN_DAYS = 1700    # total time
+
+# create history of scd-2
+PLANS = ["free", "basic", "pro", "enterprise"]
+MAX_PLAN_CHANGES = 5
+CHANGE_GAP_DAYS = (30, 200)
+CHURN_PROB = 0.15
+
+def _resolve_as_of() -> datetime:
+    # window time to read data not create data
+    raw = os.getenv("UNIFY_REFERENCE_NOW")
+    if raw:
+        return datetime.fromisoformat(raw)
+    # truncate 00:00: seed many time in day will create same data
+    return datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+
+AS_OF = _resolve_as_of()
+REFERENCE_NOW = AS_OF
+
+def _person_rng(person_id: int) -> random.Random:
+    # per-entity seed: each person will have independent row and stable
+    return random.Random(SEED * 1_000_003 + person_id)
+
+def source_rng(person_id: int, source: str) -> random.Random:
+    # independend rng for each (person, source)
+    return random.Random(f"{SEED}:{source}:{person_id}")
+
+def _build_plan_timeline(rng: random.Random, signup_at: datetime) -> list[tuple[datetime, str, str]]:
+    # entire history plan of 1 person, create once and dont depend on as_of
+    timeline = [(signup_at, rng.choice(PLANS), "active")]
+    cursor = signup_at
+
+    for _ in range(rng.randint(0, MAX_PLAN_CHANGES)):
+        cursor = cursor + timedelta(days=rng.randint(*CHANGE_GAP_DAYS))
+        if rng.random() < CHURN_PROB:
+            timeline.append((cursor, timeline[-1][1], "canceled"))
+            break
+        timeline.append((cursor, rng.choice(PLANS), "active"))
+
+    return timeline
 
 @dataclass
 class Person:
@@ -35,33 +68,53 @@ class Person:
     stripe_customer_id: str
     app_user_id: int
     event_anonymous_id: str
+    plan_changes: list[tuple[datetime, str, str]]
 
+    def state_at(self, as_of: datetime) -> tuple[str, str, datetime]:
+        # Plan/status/updated_at in time as_of
+        plan, status, updated_at = self.plan_changes[0][1], "active", self.signup_at
+        for effective_at, p, s in self.plan_changes:
+            if effective_at > as_of:
+                break   # change in future -> dont happen
+            plan, status, updated_at = p, s, effective_at
+        return plan, status, updated_at
 
-def build_persons(n: int = N_PERSONS) -> list[Person]:
+def build_persons(as_of: datetime | None = None) -> list[Person]:
+    # erson already had at as_of
+    as_of = as_of or AS_OF
     fake = Faker()
     fake.seed_instance(SEED)
     persons: list[Person] = []
-    for i in range(n):
-        first = fake.first_name()
-        last = fake.last_name()
+
+    for i in range(POOL_SIZE):
+        first, last = fake.first_name(), fake.last_name()
         domain = fake.free_email_domain()
-        persons.append(
-            Person(
-                person_id=i,
-                first_name=first,
-                last_name=last,
-                email=f"{first}.{last}.{i}@{domain}".lower(),
-                company=fake.company(),
-                country=fake.country_code(),
-                signup_at=fake.date_time_between(REFERENCE_START, REFERENCE_NOW),
-                stripe_customer_id="cus_" + fake.bothify("??######"),
-                app_user_id=10_000 + i,
-                event_anonymous_id=fake.uuid4(),
-            )
+        company, country = fake.company(), fake.country_code()
+        stripe_id = "cus_" + fake.bothify("??######")
+        anon_id = fake.uuid4()
+
+        rng = _person_rng(i)
+        signup_at = EPOCH + timedelta(
+            days=i * ARRIVAL_SPAN_DAYS / POOL_SIZE,   # đến đều theo person_id
+            hours=rng.randint(0, 23),                 # jitter trong ngày
         )
+        if signup_at > as_of:
+            continue                                  # chưa tới lượt người này
+
+        persons.append(Person(
+            person_id=i,
+            first_name=first, last_name=last,
+            email=f"{first}.{last}.{i}@{domain}".lower(),
+            company=company, country=country,
+            signup_at=signup_at,
+            stripe_customer_id=stripe_id,
+            app_user_id=10_000 + i,
+            event_anonymous_id=anon_id,
+            plan_changes=_build_plan_timeline(rng, signup_at),
+        ))
+
     return persons
 
 
 if __name__ == "__main__":
-    people = build_persons()
-    print(f"Generate {len(people)} success")
+    print(f"as_of = {AS_OF:%Y-%m-%d}  ->  {len(build_persons())} persons")

@@ -1,6 +1,6 @@
 # cover aspect dbt test can reach
 checks for customers:
-  - row_count between 1200 and 1400
+  - row_count >= 1000
 
   - freshness(_ingested_at):
       warn: when > 36h
@@ -34,8 +34,13 @@ checks for identity_map:
         select round(1.0 * count(distinct customer_key) / count(*), 3)
         from silver.identity_map
 
+  - identity_map_gap_vs_customers = 0:  # grain identity_map == grain customers
+      identity_map_gap_vs_customers query: |
+        select (select count(*) from silver.identity_map)
+            -  (select count(*) from silver.customers)
+            
 checks for subscriptions:
-  - row_count >= 450
+  - row_count >= 400
 
   - missing_count(sub_started_at) = 0
   - missing_count(sub_updated_at) = 0

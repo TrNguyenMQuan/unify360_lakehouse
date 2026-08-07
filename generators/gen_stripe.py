@@ -1,9 +1,8 @@
 # stripe -> JSON
 from __future__ import annotations
 import json
-import random
 from datetime import timedelta
-from generators.identities import build_persons, DATA_DIR, SEED
+from generators.identities import build_persons, DATA_DIR, source_rng, AS_OF
 
 PLANS = [
     {"price_id": "basic",       "amount": 2900,     "interval": "month"},
@@ -11,18 +10,18 @@ PLANS = [
     {"price_id": "enterprise",  "amount": 29900,    "interval": "month"}
 ]
 SUB_STATUS = ["active", "active", "active", "canceled", "past_due"]   # prefer active
-
-rng = random.Random(SEED + 2)
+STRIPE_MEMBERSHIP_PROB = 0.70
 
 def _convert_unix_second_epoch(dt) -> int:
     return int(dt.timestamp())
 
 def build_stripe() -> tuple[list, list, list]:
-    persons = build_persons()
+    persons = build_persons(AS_OF)
     customers, subscriptions, invoices = [], [], []
 
     for person in persons:
-        if rng.random() > 0.70:
+        r = source_rng(person.person_id, "stripe")
+        if r.random() > STRIPE_MEMBERSHIP_PROB:
             continue
 
         customers.append({
@@ -34,13 +33,13 @@ def build_stripe() -> tuple[list, list, list]:
             "metadata": {"country": person.country}
         })
 
-        plan = rng.choice(PLANS)
+        plan = r.choice(PLANS)
         sub_id = "sub_" + f"{person.person_id:06d}"
         subscriptions.append({
             "id": sub_id,
             "object": "subscription",
             "customer": person.stripe_customer_id,
-            "status": rng.choice(SUB_STATUS),
+            "status": r.choice(SUB_STATUS),
             "created": _convert_unix_second_epoch(person.signup_at),
             "items": {
                 "object": "list",
@@ -55,8 +54,10 @@ def build_stripe() -> tuple[list, list, list]:
             }
         })
 
-        for month in range(rng.randint(1, 12)):
+        for month in range(r.randint(1, 12)):
             start = person.signup_at + timedelta(days=30 * month)
+            if start > AS_OF:
+                break
             invoices.append({
                 "id": "in_" + f"{person.person_id:06d}_{month:02d}",
                 "object": "invoice",

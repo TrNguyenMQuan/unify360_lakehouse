@@ -52,7 +52,7 @@ checks for stripe_customers:
         FROM stripe_customers
 
 checks for app_users:
-  - row_count >= 450  # because load as mode watermark
+  - row_count >= 400  # because load as mode watermark
 
   - missing_count(user_id) = 0
   - missing_count(account_id) = 0
@@ -81,15 +81,17 @@ checks for app_users:
   #       FROM iceberg.bronze.app_users
 
 checks for app_subscriptions:
-  - row_count >= 450
+  - row_count >= 400
 
-  - pct_duplicate_subscription_id:
-      warn: when > 2
-      fail: when > 20
-      pct_duplicate_subscription_id query: |
-        select round(100.0 * (count(*) - count(distinct subscription_id))
-                   / nullif(count(*), 0), 2)
-        from app_subscriptions
+  - dup_subscription_id_within_batch = 0:
+        dup_subscription_id_within_batch query: |
+          select count(*) from (
+            select _ingested_at, subscription_id
+            from app_subscriptions
+            group by 1, 2
+            having count(*) > 1
+          )
+          
   - missing_count(account_id) = 0
 
   - schema:
