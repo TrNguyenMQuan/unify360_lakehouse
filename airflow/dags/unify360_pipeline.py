@@ -42,7 +42,8 @@ def unify360_pipeline():
 
     @task.bash( # call script gate without make
         cwd=PROJECT_DIR,
-        env={"SODA": f"{VENV}/soda", "SODA_CONF": SODA_CONF},
+        # scan and seed must run on the same time
+        env={**TIME_ENV, "SODA": f"{VENV}/soda", "SODA_CONF": SODA_CONF},
         append_env=True
     )
     def scan(layer: str) -> str: # dynamic task generation

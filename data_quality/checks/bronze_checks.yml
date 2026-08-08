@@ -91,7 +91,7 @@ checks for app_subscriptions:
             group by 1, 2
             having count(*) > 1
           )
-          
+
   - missing_count(account_id) = 0
 
   - schema:
@@ -138,12 +138,12 @@ checks for app_events:
   #                         current_timestamp)
   #       FROM iceberg.bronze.app_events
 
-  - hours_since_last_event:
-      warn: when not between 0 and 26
-      fail: when not between 0 and 50
-      hours_since_last_event query: |
-        SELECT date_diff('hour',
-                          max(cast("timestamp" as timestamp(6))),
-                          current_timestamp)
-        FROM app_events
+  - hours_since_last_event: # event time use time logic when run dont use real time
+        warn: when not between 0 and 26
+        fail: when not between 0 and 50
+        hours_since_last_event query: |
+          SELECT date_diff('hour',
+                            max(cast("timestamp" as timestamp(6))),
+                            from_iso8601_timestamp('${UNIFY_REFERENCE_NOW}'))
+          FROM app_events
 

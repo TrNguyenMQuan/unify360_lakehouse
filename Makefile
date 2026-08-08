@@ -50,7 +50,7 @@ test:	## dbt test
 	$(DBT) test --project-dir dbt --profiles-dir dbt
 
 scan-%:	## scan 1 layer - logic gate store in scripts/soda_gate.sh
-	@SODA="$(SODA)" SODA_CONF="$(SODA_CONF)" scripts/soda_gate.sh $*
+	@SODA="$(SODA)" SODA_CONF="$(SODA_CONF)" $(if $(NOW),UNIFY_REFERENCE_NOW=$(NOW)) scripts/soda_gate.sh $*
 
 scan:	## scan entire
 	@$(MAKE) scan-bronze scan-silver scan-gold
@@ -110,3 +110,16 @@ demo-scd2:	## create a change plan -> demo SCD-2
 	@$(MAKE) ingest
 	@$(MAKE) build
 	@echo ">> fact_subscriptions: expected 454 dong / 453 current / 1 history"
+
+# Backfill
+SNAPSHOT_TABLE := iceberg.snapshots.scd_subscriptions
+.PHONY: history-reset
+
+history-reset:	## delete SCD-2 + watermark bronze -> clean point before backfill
+	@echo ">> drop $(SNAPSHOT_TABLE)  (delete history SCD-2)"
+	@$(TRINO) --execute "DROP TABLE IF EXISTS $(SNAPSHOT_TABLE)"
+	@for t in $(INCREMENTAL_TABLES); do \
+		echo ">> drop iceberg.bronze.$$t  (reset watermark)" ; \
+		$(TRINO) --execute "DROP TABLE IF EXISTS iceberg.bronze.$$t" ; \
+	done
+	@echo ">> Cleanned"

@@ -2,12 +2,13 @@
 
 {% snapshot scd_subscriptions %}
 
+{# valid_from: real day change it not just at the momment snapshot #}
 {{
     config(
         target_schema = 'snapshots',
         unique_key    = 'subscription_id',
-        strategy      = 'check',                
-        check_cols    = ['plan', 'status']
+        strategy      = 'timestamp',
+        updated_at    = 'sub_updated_at'
     )
 }}
 

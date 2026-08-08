@@ -10,8 +10,9 @@ LAYER="${1:?usage: soda_gate.sh <bronze|silver|gold>}"
 SODA="${SODA:-.venv/bin/soda}"
 SODA_CONF="${SODA_CONF:-data_quality/configuration.yml}"
 CHECKS="${CHECKS_DIR:-data_quality/checks}/${LAYER}_checks.yml"
+REFERENCE_NOW="${UNIFY_REFERENCE_NOW:-$(date -u +%F)}" # time point logic not real time use for backfill
 
-out="$("$SODA" scan -d "$LAYER" -c "$SODA_CONF" "$CHECKS" 2>&1)"
+out="$("$SODA" scan -d "$LAYER" -c "$SODA_CONF" -v "UNIFY_REFERENCE_NOW=$REFERENCE_NOW" "$CHECKS" 2>&1)"
 code=$?
 
 echo "$out"   # log in Airflow
