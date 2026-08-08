@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# workflow only need read code to test
+permissions:
+  contents: read
+
+# push into PR -> cancel the previous
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # default time logic -> when run CI will have the same data
+  UNIFY_REFERENCE_NOW: "2026-08-07"
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"  # match with image apache airflow
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install dependencies # install again all package in requirements
+        run: pip install -r requirements.txt
+
+      # sort by simple to complex
+      - name: Lint (ruff)
+        run: ruff check .
+
+      - name: dbt parse
+        run: dbt parse --project-dir dbt --profiles-dir dbt
+
+      - name: Unit tests
+        run: python -m pytest tests/ -v
