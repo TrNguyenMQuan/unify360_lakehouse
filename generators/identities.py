@@ -52,7 +52,9 @@ def _build_plan_timeline(rng: random.Random, signup_at: datetime) -> list[tuple[
         if rng.random() < CHURN_PROB:
             timeline.append((cursor, timeline[-1][1], "canceled"))
             break
-        timeline.append((cursor, rng.choice(PLANS), "active"))
+        # timeline.append((cursor, rng.choice(PLANS), "active")) -> it can chose a plan like current
+        others = [p for p in PLANS if p != timeline[-1][1]]
+        timeline.append((cursor, rng.choice(others), "active"))
 
     return timeline
 

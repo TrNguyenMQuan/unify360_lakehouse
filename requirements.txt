@@ -13,6 +13,8 @@ dbt-core==1.11.12
 
 # Dev
 ruff==0.15.20
+pytest==9.1.1
+pytest-cov==7.1.0
 
 # Df
 pandas==3.0.3
