@@ -49,14 +49,8 @@ build:	## dbt build
 test:	## dbt test
 	$(DBT) test --project-dir dbt --profiles-dir dbt
 
-scan-%:	## scan 1 layer (warn not stop gate; fail and crash stop)
-	@out=$$($(SODA) scan -d $* -c $(SODA_CONF) data_quality/checks/$*_checks.yml 2>&1) ; code=$$? ; \
-	echo "$$out" ; \
-	if ! echo "$$out" | grep -q "Scan summary"; then \
-		echo ">> [$*] SODA cant run - crash before scan (exit $$code)" ; exit 3 ; fi ; \
-	if [ $$code -eq 1 ]; then echo ">> [$*] WARNING" ; exit 0 ; fi ; \
-	exit $$code
-
+scan-%:	## scan 1 layer - logic gate store in scripts/soda_gate.sh
+	@SODA="$(SODA)" SODA_CONF="$(SODA_CONF)" scripts/soda_gate.sh $*
 
 scan:	## scan entire
 	@$(MAKE) scan-bronze scan-silver scan-gold
